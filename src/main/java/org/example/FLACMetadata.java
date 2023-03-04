@@ -7,29 +7,30 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.stream.IntStream;
 
-public class Main {
+public class FLACMetadata {
   public static void main(String[] args) throws IOException {
     stdout("Specification can be found at: https://xiph.org/flac/format.html#stream\n");
-    try (InputStream is = Main.class.getClassLoader().getResourceAsStream("demo.flac")) {
-      var signature = new String(is.readNBytes(4));
-
-      if (!signature.equals("fLaC")) {
-        stderr("not a flac stream");
-        System.exit(-1);
-      }
-
-      stdout("Signature: %s", signature);
-
-      do {
-        stdout("--------");
-      } while(!parseMetadataBlock(is));
-      stdout("--------");
+    try (InputStream is = FLACMetadata.class.getClassLoader().getResourceAsStream("demo.flac")) {
+      parseSignature(is);
+      while(!parseMetadataBlock(is));
     }
   }
 
+  private static void parseSignature(InputStream is) throws IOException {
+    var signature = new String(is.readNBytes(4));
+
+    if (!signature.equals("fLaC")) {
+      stderr("not a flac stream");
+      System.exit(-1);
+    }
+
+    stdout("Signature: %s", signature);
+  }
+
   private static boolean parseMetadataBlock(InputStream is) throws IOException {
+    stdout("\n------------------------------------");
+
     var header = readBigEndian(8, is);
 
     var isLast = (header & 0b10000000) > 0;
@@ -51,6 +52,8 @@ public class Main {
       case 127 -> throw new UnsupportedOperationException("Invalid MetaData handling not implemented yet."); // "<invalid!>";
       default -> String.format("<reserved: %s>", blockTypeBits);
     };
+
+    stdout("------------------------------------");
 
     return isLast;
   }
@@ -121,10 +124,10 @@ public class Main {
       case 18 -> "Illustration";
       case 19 -> "Band/artist logotype";
       case 20 -> "Publisher/Studio logotype";
-      default -> throw new RuntimeException("Picture type code not supported: " + pictureTypeCode);
+      default -> throw new RuntimeException("Picture type code not recognized: " + pictureTypeCode);
     };
 
-    stdout("The picture type according to the ID3v2 APIC frame: %d (\"%s\")", pictureTypeCode, pictureType);
+    stdout("The picture type according to the ID3v2 APIC frame: %d - %s", pictureTypeCode, pictureType);
 
     var mimeTypeLength = readBigEndian(32, is);
     var mimeType = new String(is.readNBytes((int) mimeTypeLength));
